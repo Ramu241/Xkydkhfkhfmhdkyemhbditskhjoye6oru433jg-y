@@ -1,13 +1,9 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { PredictorPanel } from './components/PredictorPanel';
 import { HistoryModal } from './components/HistoryModal';
 import { FloatingGameOverlay } from './components/FloatingGameOverlay';
+import { WinPopup } from './components/WinPopup';
 import { generatePrediction, PredictionResult } from './utils/predictionEngine';
 import { HistoryItem, WinGoApiItem } from './types';
 import { audioEngine } from './utils/audio';
@@ -16,7 +12,7 @@ export default function App() {
   // App state
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [isGameViewOpen, setIsGameViewOpen] = useState(false);
+  const [isGameViewOpen, setIsGameViewOpen] = useState(true);
 
   // Game & prediction state
   const [gameMode, setGameMode] = useState<'1m' | '30s'>('1m');
@@ -27,13 +23,23 @@ export default function App() {
   
   // Prediction result state
   const [latestPrediction, setLatestPrediction] = useState<PredictionResult | null>(null);
+  const [predictionPeriod, setPredictionPeriod] = useState<string | null>(null);
   const [pendingPredictPeriod, setPendingPredictPeriod] = useState<string | null>(null);
   const [consecutiveLosses, setConsecutiveLosses] = useState<number>(0);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [hasPredictedCurrentPeriod, setHasPredictedCurrentPeriod] = useState<boolean>(false);
 
-  // In-memory history (not stored in localStorage, clears on app refresh as requested)
+  // Win Popup state
+  const [winPopupData, setWinPopupData] = useState<{ isOpen: boolean; num1: number; num2: number }>({
+    isOpen: false,
+    num1: 0,
+    num2: 0,
+  });
+
+  // In-memory history
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  // Ref to track evaluated periods so we don't evaluate the same period twice
+  // Ref to track evaluated periods
   const evaluatedPeriodsRef = useRef<Set<string>>(new Set());
 
   // Handle sound toggle
@@ -58,6 +64,13 @@ export default function App() {
 
     return () => clearInterval(timer);
   }, [gameMode]);
+
+  // Reset current period prediction state when period changes
+  useEffect(() => {
+    if (periodNumber && periodNumber !== predictionPeriod) {
+      setHasPredictedCurrentPeriod(false);
+    }
+  }, [periodNumber, predictionPeriod]);
 
   // Fetch Live WinGo History
   const fetchHistoryData = useCallback(async () => {
@@ -114,7 +127,7 @@ export default function App() {
   // Fetch history periodically
   useEffect(() => {
     fetchHistoryData();
-    const interval = setInterval(fetchHistoryData, 2500);
+    const interval = setInterval(fetchHistoryData, 2000);
     return () => clearInterval(interval);
   }, [fetchHistoryData]);
 
@@ -136,11 +149,11 @@ export default function App() {
       // Evaluate result: JACKPOT, WIN, or LOSS
       let resultStatus: 'JACKPOT' | 'WIN' | 'LOSS' = 'LOSS';
 
-      // Check for JACKPOT: actual number matches either primary or secondary predicted number
       if (actualNum === latestPrediction.num1 || actualNum === latestPrediction.num2) {
         resultStatus = 'JACKPOT';
         setConsecutiveLosses(0);
         audioEngine.playJackpotTune();
+        setWinPopupData({ isOpen: true, num1: latestPrediction.num1, num2: latestPrediction.num2 });
       } else if (actualSize === latestPrediction.size) {
         resultStatus = 'WIN';
         setConsecutiveLosses(0);
@@ -169,12 +182,23 @@ export default function App() {
     }
   }, [pendingPredictPeriod, recentDraws, latestPrediction]);
 
-  // User triggers "Get Petition Result" button - generates prediction instantly
+  // User triggers "Get Petition Result" button
   const handleGetPredictionClick = () => {
+    if (isScanning || (hasPredictedCurrentPeriod && predictionPeriod === periodNumber)) return;
+
+    setIsScanning(true);
     audioEngine.playScanSound();
-    const pred = generatePrediction(recentDraws, consecutiveLosses, latestPrediction?.size);
-    setLatestPrediction(pred);
-    setPendingPredictPeriod(periodNumber);
+
+    setTimeout(() => {
+      setIsScanning(false);
+      audioEngine.playWinTune();
+
+      const pred = generatePrediction(recentDraws, consecutiveLosses, latestPrediction?.size);
+      setLatestPrediction(pred);
+      setPredictionPeriod(periodNumber);
+      setPendingPredictPeriod(periodNumber);
+      setHasPredictedCurrentPeriod(true);
+    }, 3500);
   };
 
   return (
@@ -200,9 +224,16 @@ export default function App() {
           onOpenHistory={() => setIsHistoryModalOpen(true)}
           onOpenGameView={() => setIsGameViewOpen(true)}
           gameMode={gameMode}
-          onSetGameMode={setGameMode}
+          onSetGameMode={(mode) => {
+            setGameMode(mode);
+            setLatestPrediction(null);
+            setHasPredictedCurrentPeriod(false);
+          }}
           predictType={predictType}
           onSetPredictType={setPredictType}
+          isScanning={isScanning}
+          hasPredictedCurrentPeriod={hasPredictedCurrentPeriod}
+          predictionPeriod={predictionPeriod}
         />
       </main>
 
@@ -212,10 +243,21 @@ export default function App() {
         onCloseGameView={() => setIsGameViewOpen(false)}
         periodNumber={periodNumber}
         remainingSeconds={remainingSeconds}
+        recentDraws={recentDraws}
         latestPrediction={latestPrediction}
         onGetPrediction={handleGetPredictionClick}
-        isPredictorLoading={false}
+        isPredictorLoading={isScanning}
         historyLength={history.length}
+        hasPredictedCurrentPeriod={hasPredictedCurrentPeriod}
+        predictionPeriod={predictionPeriod}
+        gameMode={gameMode}
+        onSetGameMode={(mode) => {
+          setGameMode(mode);
+          setLatestPrediction(null);
+          setHasPredictedCurrentPeriod(false);
+        }}
+        predictType={predictType}
+        onSetPredictType={setPredictType}
       />
 
       {/* SESSION HISTORY MODAL */}
@@ -224,6 +266,14 @@ export default function App() {
         onClose={() => setIsHistoryModalOpen(false)}
         history={history}
         onClearHistory={() => setHistory([])}
+      />
+
+      {/* WIN POPUP */}
+      <WinPopup
+        isOpen={winPopupData.isOpen}
+        num1={winPopupData.num1}
+        num2={winPopupData.num2}
+        onClose={() => setWinPopupData((prev) => ({ ...prev, isOpen: false }))}
       />
 
     </div>

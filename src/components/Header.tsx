@@ -1,6 +1,7 @@
 import React from 'react';
 import { Send, Volume2, VolumeX, History, Monitor, Sparkles } from 'lucide-react';
 import { audioEngine } from '../utils/audio';
+import { APP_TITLE } from '../utils/assets';
 
 interface HeaderProps {
   soundEnabled: boolean;
@@ -28,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div>
             <h1 className="text-sm md:text-lg font-black text-white font-mono tracking-wider truncate flex items-center gap-1">
-              <span>🎭╰‿╯RAMUㅤᏴᎻᎪᏆ</span>
+              <span>{APP_TITLE}</span>
             </h1>
             <p className="text-[10px] text-[#00ff88] font-mono tracking-widest leading-none font-bold">
               VIP WINGO PREDICTOR
