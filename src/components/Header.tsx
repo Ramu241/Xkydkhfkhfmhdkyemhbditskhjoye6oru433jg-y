@@ -1,5 +1,5 @@
 import React from 'react';
-import { Send, Volume2, VolumeX, History, Monitor, Sparkles } from 'lucide-react';
+import { Send, Volume2, VolumeX, History, Monitor, Sparkles, Key } from 'lucide-react';
 import { audioEngine } from '../utils/audio';
 import { APP_TITLE } from '../utils/assets';
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenHistory: () => void;
   onToggleGameView: () => void;
   isGameViewOpen: boolean;
+  onOpenKeyModal: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenHistory,
   onToggleGameView,
   isGameViewOpen,
+  onOpenKeyModal,
 }) => {
   return (
     <header className="w-full bg-[#0a0f1d]/90 border-b-2 border-[#00ff88]/30 px-3 py-2.5 backdrop-blur-md sticky top-0 z-50 shadow-[0_4px_25px_rgba(0,0,0,0.5)]">
@@ -40,6 +42,19 @@ export const Header: React.FC<HeaderProps> = ({
         {/* RIGHT ACTION BUTTONS */}
         <div className="flex items-center gap-1.5 md:gap-2">
           
+          {/* VIP KEY ACTIVATION BUTTON */}
+          <button
+            onClick={() => {
+              audioEngine.playClick();
+              onOpenKeyModal();
+            }}
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/60 text-amber-400 hover:bg-amber-500 hover:text-black font-mono text-xs font-bold transition-all shadow-[0_0_12px_rgba(245,158,11,0.3)] active:scale-95"
+            title="VIP Key Activation"
+          >
+            <Key className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">KEY VIP</span>
+          </button>
+
           {/* TELEGRAM LINK BUTTON */}
           <a
             href="https://t.me/+qC6omd1OwAphYTc9"

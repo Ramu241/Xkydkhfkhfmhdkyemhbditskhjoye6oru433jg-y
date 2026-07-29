@@ -4,15 +4,18 @@ import { PredictorPanel } from './components/PredictorPanel';
 import { HistoryModal } from './components/HistoryModal';
 import { FloatingGameOverlay } from './components/FloatingGameOverlay';
 import { WinPopup } from './components/WinPopup';
+import { KeyActivationModal } from './components/KeyActivationModal';
 import { generatePrediction, PredictionResult } from './utils/predictionEngine';
 import { HistoryItem, WinGoApiItem } from './types';
 import { audioEngine } from './utils/audio';
+import { getSavedKeyStatus } from './utils/keySystem';
 
 export default function App() {
   // App state
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isGameViewOpen, setIsGameViewOpen] = useState(true);
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
 
   // Game & prediction state
   const [gameMode, setGameMode] = useState<'1m' | '30s'>('1m');
@@ -186,6 +189,14 @@ export default function App() {
   const handleGetPredictionClick = () => {
     if (isScanning || (hasPredictedCurrentPeriod && predictionPeriod === periodNumber)) return;
 
+    // Check if user has an active VIP key
+    const keyStatus = getSavedKeyStatus();
+    if (!keyStatus.isValid) {
+      setIsKeyModalOpen(true);
+      audioEngine.playLossTune();
+      return;
+    }
+
     setIsScanning(true);
     audioEngine.playScanSound();
 
@@ -211,6 +222,7 @@ export default function App() {
         onOpenHistory={() => setIsHistoryModalOpen(true)}
         onToggleGameView={() => setIsGameViewOpen(!isGameViewOpen)}
         isGameViewOpen={isGameViewOpen}
+        onOpenKeyModal={() => setIsKeyModalOpen(true)}
       />
 
       {/* MAIN CONTAINER */}
@@ -274,6 +286,15 @@ export default function App() {
         num1={winPopupData.num1}
         num2={winPopupData.num2}
         onClose={() => setWinPopupData((prev) => ({ ...prev, isOpen: false }))}
+      />
+
+      {/* KEY ACTIVATION MODAL */}
+      <KeyActivationModal
+        isOpen={isKeyModalOpen}
+        onClose={() => setIsKeyModalOpen(false)}
+        onActivated={() => {
+          setIsKeyModalOpen(false);
+        }}
       />
 
     </div>
